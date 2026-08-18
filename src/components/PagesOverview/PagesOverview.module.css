@@ -1,0 +1,172 @@
+.root {
+  min-height: 100dvh;
+  background: #f2f2f2;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.projectName {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.viewToggle { display: flex; gap: 4px; }
+
+.tabBtn {
+  padding: 8px 16px;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+.tabBtn.active { background: #000; color: #fff; border-color: #000; }
+
+/* ── Pages grid ─────────────────────────────────────────────────────────── */
+
+.pageGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+  align-content: flex-start;
+}
+
+.pageItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.thumbnail {
+  position: relative;
+  border: 1.5px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  display: block;
+}
+.thumbnail:active { opacity: 0.75; }
+
+.drawnDot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #000;
+}
+
+.pageNum {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+  letter-spacing: 0.5px;
+}
+
+.pageActions {
+  display: flex;
+  gap: 4px;
+}
+
+.actionBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.actionBtn:disabled { opacity: 0.3; pointer-events: none; }
+.actionBtn:active { background: #eee; }
+
+.addPageBtn {
+  width: 100px;
+  height: 140px;
+  border: 1.5px dashed #ccc;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.addPageBtn:active { background: #e8e8e8; }
+
+/* ── Spreads view ───────────────────────────────────────────────────────── */
+
+.spreadsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 20px;
+  align-items: center;
+}
+
+.spread {
+  display: flex;
+  gap: 2px;
+  background: #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+  width: fit-content;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.spreadPage { flex: none; }
+
+.spreadThumb {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  display: block;
+  position: relative;
+}
+.spreadThumb canvas { display: block; }
+
+.spreadNum {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: #666;
+  background: rgba(255,255,255,0.85);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.spreadEmpty {
+  width: 100%;
+  background: #e0e0e0;
+  aspect-ratio: 3 / 4;
+}

@@ -1,0 +1,177 @@
+.root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+
+.toolbar {
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.toolBtn {
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  padding: 8px 14px;
+  min-height: 44px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.toolBtn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+.toolBtn:active { background: #f0f0f0; }
+.toolBtn.active {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.pageIndicator {
+  font-size: 14px;
+  color: #555;
+  flex: 1;
+  text-align: center;
+}
+
+/* ── Context bar ─────────────────────────────────────────────────────────── */
+
+.contextBar {
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  padding: 8px 16px;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Workspace ────────────────────────────────────────────────────────────── */
+
+.workspace {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0e0e0;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* ── Page canvas ─────────────────────────────────────────────────────────── */
+
+.page {
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  position: relative;
+  user-select: none;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+/* ── Panels ──────────────────────────────────────────────────────────────── */
+
+.panel {
+  position: absolute;
+  border: 1.5px solid #aaa;
+  box-sizing: border-box;
+  cursor: move;
+}
+
+.panelSelected {
+  border: 2px solid #000;
+}
+
+.orderBadge {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 3px;
+  padding: 1px 5px;
+  pointer-events: none;
+}
+
+/* Order mode — unordered panel: dashed border, pointer cursor */
+.panelOrderable {
+  border: 2px dashed #aaa;
+  cursor: pointer;
+}
+.panelOrderable:hover {
+  border-color: #000;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Order mode — already-ordered panel: solid border */
+.panelOrdered {
+  border: 2px solid #000;
+  cursor: default;
+}
+
+/* Large number badge shown in order mode */
+.orderBadgeLarge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(16px, 4vw, 32px);
+  font-weight: 800;
+  color: #000;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  letter-spacing: -1px;
+}
+
+/* "✓ Order" indicator on grid toolbar button */
+.toolBtn.ordered {
+  border-color: #000;
+}
+
+/* ── Resize handles ──────────────────────────────────────────────────────── */
+
+.handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #000;
+  border-radius: 2px;
+  z-index: 10;
+}
+
+/* Large touch target via pseudo-element */
+.handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+}
+
+/* Handle positions */
+.handle_nw { top: -5px; left: -5px; cursor: nw-resize; }
+.handle_n  { top: -5px; left: calc(50% - 5px); cursor: n-resize; }
+.handle_ne { top: -5px; right: -5px; cursor: ne-resize; }
+.handle_e  { top: calc(50% - 5px); right: -5px; cursor: e-resize; }
+.handle_se { bottom: -5px; right: -5px; cursor: se-resize; }
+.handle_s  { bottom: -5px; left: calc(50% - 5px); cursor: s-resize; }
+.handle_sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+.handle_w  { top: calc(50% - 5px); left: -5px; cursor: w-resize; }

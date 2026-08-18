@@ -1,0 +1,146 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  z-index: 200;
+}
+
+.backBtn {
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 8px 0;
+  color: #000;
+}
+
+.heading {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 16px 0 32px;
+}
+
+.section {
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: 32px;
+}
+
+.sectionHeading {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #666;
+  margin: 0 0 12px;
+}
+
+/* Presets */
+.presetRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.presetBtn {
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  padding: 0 20px;
+  min-height: 44px;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.presetBtn.presetActive {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+/* Custom input */
+.customRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.customLabel {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.customInput {
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-height: 44px;
+  font-size: 16px;
+  width: 100px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Line width */
+.lineWidthRow {
+  display: flex;
+  gap: 8px;
+}
+
+.lineWidthBtn {
+  border: 1.5px solid #ccc;
+  border-radius: 8px;
+  padding: 10px 20px;
+  min-height: 44px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.lineWidthBtn.lineWidthActive {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.linePreview {
+  display: block;
+  width: 36px;
+  background: currentColor;
+  border-radius: 2px;
+}
+
+/* Start button */
+.startBtn {
+  margin-top: auto;
+  padding: 16px 48px;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 56px;
+  align-self: stretch;
+  max-width: 520px;
+}
+
+.startBtn:active {
+  opacity: 0.85;
+}
