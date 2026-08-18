@@ -278,6 +278,12 @@ function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridE
   const [pagePx, setPagePx] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [orderState, setOrderState] = useState<OrderState | null>(null);
 
+  const [showGridGen, setShowGridGen] = useState(false);
+  const [gridRows, setGridRows] = useState(2);
+  const [gridCols, setGridCols] = useState(3);
+  const [gridMargin, setGridMargin] = useState(5);
+  const [gridGutter, setGridGutter] = useState(3);
+
   const activeDragRef = useRef<ActiveDrag | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
   const pageElRef = useRef<HTMLDivElement | null>(null);
@@ -552,6 +558,35 @@ function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridE
     setOrderState(null);
   };
 
+  // ── Grid generator ────────────────────────────────────────────────────────
+
+  const generateGrid = () => {
+    const cols = Math.max(1, gridCols);
+    const rows = Math.max(1, gridRows);
+    const margin = Math.max(0, gridMargin);
+    const gutter = Math.max(0, gridGutter);
+    const panelW = (pageWidthMm - 2 * margin - (cols - 1) * gutter) / cols;
+    const panelH = (pageHeightMm - 2 * margin - (rows - 1) * gutter) / rows;
+    if (panelW < 5 || panelH < 5) return; // too small
+    const generated: Panel[] = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        generated.push({
+          id: uid(),
+          x: margin + c * (panelW + gutter),
+          y: margin + r * (panelH + gutter),
+          width: panelW,
+          height: panelH,
+          order: null,
+          strokes: [],
+        });
+      }
+    }
+    push(generated);
+    setShowGridGen(false);
+    setSelectedId(null);
+  };
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   const displayPanels = orderState
@@ -606,6 +641,12 @@ function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridE
             <button className={styles.toolBtn} onClick={redo} disabled={!canRedo}>Redo</button>
             <button className={styles.toolBtn} onClick={addPanel}>+ Panel</button>
             <button
+              className={`${styles.toolBtn} ${showGridGen ? styles.active : ''}`}
+              onClick={() => setShowGridGen(v => !v)}
+            >
+              ⊞ Grid
+            </button>
+            <button
               className={`${styles.toolBtn} ${project.settings.snap ? styles.active : ''}`}
               onClick={toggleSnap}
             >
@@ -628,6 +669,35 @@ function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridE
           </>
         )}
       </div>
+
+      {/* Grid generator bar */}
+      {!orderState && showGridGen && (
+        <div className={styles.gridGenBar}>
+          <label className={styles.gridGenField}>
+            <span>Rows</span>
+            <input type="number" min={1} max={20} value={gridRows}
+              onChange={e => setGridRows(Math.max(1, Math.min(20, Number(e.target.value))))} />
+          </label>
+          <label className={styles.gridGenField}>
+            <span>Cols</span>
+            <input type="number" min={1} max={20} value={gridCols}
+              onChange={e => setGridCols(Math.max(1, Math.min(20, Number(e.target.value))))} />
+          </label>
+          <label className={styles.gridGenField}>
+            <span>Margin mm</span>
+            <input type="number" min={0} max={50} value={gridMargin}
+              onChange={e => setGridMargin(Math.max(0, Number(e.target.value)))} />
+          </label>
+          <label className={styles.gridGenField}>
+            <span>Gutter mm</span>
+            <input type="number" min={0} max={30} value={gridGutter}
+              onChange={e => setGridGutter(Math.max(0, Number(e.target.value)))} />
+          </label>
+          <button className={styles.gridGenApply} onClick={generateGrid}>
+            Generate
+          </button>
+        </div>
+      )}
 
       {/* Context bar — hidden in order mode */}
       {!orderState && selectedId && (
