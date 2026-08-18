@@ -6,6 +6,7 @@ import { displayToPage } from '../../coords';
 import { useUndoRedo } from '../../hooks/useUndoRedo';
 import { SessionSetup } from '../SessionSetup/SessionSetup';
 import { SessionCanvas } from '../SessionCanvas/SessionCanvas';
+import { getSpreads } from '../../spreads';
 import styles from './PageEditor.module.css';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -214,6 +215,11 @@ export function PageEditor({ project, pageId, onBack, dispatch }: PageEditorProp
   const [pageMode, setPageMode] = useState<'grid' | 'session-setup' | 'session'>('grid');
   const [sessionLineWidth, setSessionLineWidth] = useState<LineWidth>(project.settings.lineWidth);
   const [sessionKey, setSessionKey] = useState(0);
+  const [spreadSessionMode, setSpreadSessionMode] = useState(false);
+
+  const spreads = getSpreads(project.pages, project.direction, project.firstPageIsSingle);
+  const currentSpread = spreads.find(s => s.some(p => p?.id === pageId));
+  const siblingPageId = currentSpread?.find(p => p !== null && p.id !== pageId)?.id ?? null;
 
   if (pageMode === 'session-setup') {
     return (
@@ -236,6 +242,7 @@ export function PageEditor({ project, pageId, onBack, dispatch }: PageEditorProp
         key={sessionKey}
         project={project}
         pageId={pageId}
+        spreadSiblingPageId={spreadSessionMode && siblingPageId ? siblingPageId : undefined}
         secondsPerPanel={project.settings.secondsPerPanel}
         lineWidthType={sessionLineWidth}
         dispatch={dispatch}
@@ -253,7 +260,15 @@ export function PageEditor({ project, pageId, onBack, dispatch }: PageEditorProp
       pageId={pageId}
       onBack={onBack}
       dispatch={dispatch}
-      onStartSession={() => setPageMode('session-setup')}
+      siblingPageId={siblingPageId}
+      onStartSession={() => {
+        setSpreadSessionMode(false);
+        setPageMode('session-setup');
+      }}
+      onStartSpreadSession={siblingPageId ? () => {
+        setSpreadSessionMode(true);
+        setPageMode('session-setup');
+      } : undefined}
     />
   );
 }
@@ -266,9 +281,11 @@ interface GridEditorProps {
   onBack: () => void;
   dispatch: (action: ProjectAction) => void;
   onStartSession: () => void;
+  siblingPageId: string | null;
+  onStartSpreadSession?: () => void;
 }
 
-function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridEditorProps) {
+function GridEditor({ project, pageId, onBack, dispatch, onStartSession, siblingPageId, onStartSpreadSession }: GridEditorProps) {
   const page = project.pages.find(p => p.id === pageId);
   const initialPanels = page?.panels ?? [];
 
@@ -291,6 +308,11 @@ function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridE
   const firstRenderRef = useRef(true);
 
   const { pageWidthMm, pageHeightMm } = project;
+
+  const siblingPage = siblingPageId ? project.pages.find(p => p.id === siblingPageId) : null;
+  const siblingAllOrdered = siblingPage
+    ? siblingPage.panels.length > 0 && siblingPage.panels.every(p => p.order !== null)
+    : false;
 
   // Sync panels → project (skip first render)
   useEffect(() => {
@@ -666,6 +688,16 @@ function GridEditor({ project, pageId, onBack, dispatch, onStartSession }: GridE
             >
               ▶ Session
             </button>
+            {onStartSpreadSession && (
+              <button
+                className={styles.toolBtn}
+                onClick={onStartSpreadSession}
+                disabled={!allOrdered || panels.length === 0 || !siblingAllOrdered}
+                title={!siblingAllOrdered ? 'Set panel order on the sibling page first' : 'Start a full spread session'}
+              >
+                ▶ Spread
+              </button>
+            )}
           </>
         )}
       </div>

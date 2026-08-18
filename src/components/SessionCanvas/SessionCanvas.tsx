@@ -3,6 +3,7 @@ import type { Project, Panel, Stroke, Point, LineWidth } from '../../model/types
 import type { ProjectAction } from '../../hooks/useProject';
 import { LINE_WIDTH_MM } from '../../model/types';
 import { uid } from '../../model/factory';
+import { getSpreads } from '../../spreads';
 import styles from './SessionCanvas.module.css';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -10,18 +11,23 @@ import styles from './SessionCanvas.module.css';
 interface SessionCanvasProps {
   project: Project;
   pageId: string;
+  spreadSiblingPageId?: string;
   secondsPerPanel: number;
   lineWidthType: LineWidth;
   dispatch: (action: ProjectAction) => void;
-  onFinished: () => void;   // called when user chooses to leave review (edit grid / retry / overview)
-  onRetry: () => void;      // restart session with same settings
-  onBack: () => void;       // exit session mid-way
-  onOverview: () => void;   // go to overview from review
+  onFinished: () => void;
+  onRetry: () => void;
+  onBack: () => void;
+  onOverview: () => void;
 }
 
 type Phase = 'countdown' | 'drawing' | 'paused' | 'finished';
 
 type LiveStroke = { points: Point[]; width: number; pointerId: number };
+
+type SpreadPanel = Panel & { sourcePageId: string; xOffset: number };
+
+const SPREAD_GAP_MM = 4;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -35,6 +41,7 @@ function formatTime(ms: number): string {
 export function SessionCanvas({
   project,
   pageId,
+  spreadSiblingPageId,
   secondsPerPanel,
   lineWidthType,
   dispatch,
@@ -47,10 +54,35 @@ export function SessionCanvas({
   const lineWidthMm = LINE_WIDTH_MM[lineWidthType];
 
   const page = project.pages.find(p => p.id === pageId);
+  const siblingPage = spreadSiblingPageId
+    ? project.pages.find(p => p.id === spreadSiblingPageId)
+    : undefined;
+  const isSpreadMode = !!siblingPage;
+  const totalWidthMm = isSpreadMode
+    ? project.pageWidthMm * 2 + SPREAD_GAP_MM
+    : project.pageWidthMm;
 
-  const orderedPanels: Panel[] = (page?.panels ?? [])
-    .filter(p => p.order !== null)
-    .sort((a, b) => (a.order as number) - (b.order as number));
+  // Build ordered panels (with page offset for spread mode)
+  let orderedPanels: SpreadPanel[];
+  if (isSpreadMode) {
+    const spreadList = getSpreads(project.pages, project.direction, project.firstPageIsSingle);
+    const spread = spreadList.find(s => s.some(p => p?.id === pageId));
+    const [leftP, rightP] = spread ?? [null, null];
+    const toSpreadPanels = (pg: typeof leftP, xOff: number): SpreadPanel[] =>
+      (pg?.panels ?? [])
+        .filter(p => p.order !== null)
+        .sort((a, b) => (a.order as number) - (b.order as number))
+        .map(p => ({ ...p, sourcePageId: pg!.id, xOffset: xOff }));
+    orderedPanels = [
+      ...toSpreadPanels(leftP, 0),
+      ...toSpreadPanels(rightP, project.pageWidthMm + SPREAD_GAP_MM),
+    ];
+  } else {
+    orderedPanels = (page?.panels ?? [])
+      .filter(p => p.order !== null)
+      .sort((a, b) => (a.order as number) - (b.order as number))
+      .map(p => ({ ...p, sourcePageId: pageId, xOffset: 0 }));
+  }
 
   // ── Refs (never trigger re-renders) ───────────────────────────────────────
 
@@ -106,19 +138,31 @@ export function SessionCanvas({
     const dpr = window.devicePixelRatio || 1;
     const cssW = canvas.width / dpr;
     const cssH = canvas.height / dpr;
-    const scale = cssW / project.pageWidthMm;
+    const scale = cssW / totalWidthMm;
 
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    // White page background
     ctx.clearRect(0, 0, cssW, cssH);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, cssW, cssH);
+
+    if (isSpreadMode) {
+      // Gap between pages
+      ctx.fillStyle = '#c0c0c0';
+      ctx.fillRect(0, 0, cssW, cssH);
+      // Left page background
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, project.pageWidthMm * scale, cssH);
+      // Right page background
+      ctx.fillRect((project.pageWidthMm + SPREAD_GAP_MM) * scale, 0, project.pageWidthMm * scale, cssH);
+    } else {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, cssW, cssH);
+    }
 
     for (let i = 0; i < orderedPanels.length; i++) {
       const panel = orderedPanels[i];
-      const px = panel.x * scale;
+      const xOff = panel.xOffset;
+      const px = (xOff + panel.x) * scale;
       const py = panel.y * scale;
       const pw = panel.width * scale;
       const ph = panel.height * scale;
@@ -140,9 +184,7 @@ export function SessionCanvas({
       ctx.rect(px, py, pw, ph);
       ctx.clip();
 
-      // Get strokes for this panel.
-      // In 'finished' phase use committedRef for ALL panels (currentStrokesRef
-      // is cleared when the last panel expires, so don't use it there).
+      // Get strokes for this panel
       const strokes: Stroke[] =
         phaseRef.current === 'finished'
           ? (committedRef.current.get(panel.id) ?? panel.strokes)
@@ -150,7 +192,6 @@ export function SessionCanvas({
             ? currentStrokesRef.current
             : (committedRef.current.get(panel.id) ?? []);
 
-      // Draw committed strokes
       for (const stroke of strokes) {
         if (stroke.points.length < 2) continue;
         ctx.beginPath();
@@ -158,14 +199,13 @@ export function SessionCanvas({
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = '#000';
-        ctx.moveTo((panel.x + stroke.points[0].x) * scale, (panel.y + stroke.points[0].y) * scale);
+        ctx.moveTo((xOff + panel.x + stroke.points[0].x) * scale, (panel.y + stroke.points[0].y) * scale);
         for (let j = 1; j < stroke.points.length; j++) {
-          ctx.lineTo((panel.x + stroke.points[j].x) * scale, (panel.y + stroke.points[j].y) * scale);
+          ctx.lineTo((xOff + panel.x + stroke.points[j].x) * scale, (panel.y + stroke.points[j].y) * scale);
         }
         ctx.stroke();
       }
 
-      // Draw live stroke if this is the active panel
       const live = liveStrokeRef.current;
       if (i === panelIdxRef.current && live && live.points.length >= 2) {
         ctx.beginPath();
@@ -173,9 +213,9 @@ export function SessionCanvas({
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.strokeStyle = '#000';
-        ctx.moveTo((panel.x + live.points[0].x) * scale, (panel.y + live.points[0].y) * scale);
+        ctx.moveTo((xOff + panel.x + live.points[0].x) * scale, (panel.y + live.points[0].y) * scale);
         for (let j = 1; j < live.points.length; j++) {
-          ctx.lineTo((panel.x + live.points[j].x) * scale, (panel.y + live.points[j].y) * scale);
+          ctx.lineTo((xOff + panel.x + live.points[j].x) * scale, (panel.y + live.points[j].y) * scale);
         }
         ctx.stroke();
       }
@@ -184,7 +224,7 @@ export function SessionCanvas({
     }
 
     ctx.restore();
-  }, [orderedPanels, project.pageWidthMm]);
+  }, [orderedPanels, totalWidthMm, isSpreadMode, project.pageWidthMm]);
 
   // ── ResizeObserver ────────────────────────────────────────────────────────
 
@@ -195,7 +235,7 @@ export function SessionCanvas({
     const observer = new ResizeObserver(() => {
       const availW = container.clientWidth - 40;
       const availH = container.clientHeight - 40;
-      const ratio = project.pageWidthMm / project.pageHeightMm;
+      const ratio = totalWidthMm / project.pageHeightMm;
       const w = Math.round(Math.min(availW, availH * ratio));
       const h = Math.round(w / ratio);
       setPagePx({ w, h });
@@ -203,7 +243,7 @@ export function SessionCanvas({
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, [project.pageWidthMm, project.pageHeightMm]);
+  }, [totalWidthMm, project.pageHeightMm]);
 
   // Set canvas dimensions when pagePx changes
   useEffect(() => {
@@ -218,14 +258,12 @@ export function SessionCanvas({
   // ── expirePanel ───────────────────────────────────────────────────────────
 
   const expirePanel = useCallback(() => {
-    // 1. Stop timer RAF
     if (rafIdRef.current) {
       cancelAnimationFrame(rafIdRef.current);
       rafIdRef.current = null;
     }
     deadlineRef.current = null;
 
-    // 2. Commit live stroke if in progress
     let finalStrokes = [...currentStrokesRef.current];
     if (liveStrokeRef.current && liveStrokeRef.current.points.length >= 2) {
       finalStrokes = [
@@ -235,19 +273,26 @@ export function SessionCanvas({
       liveStrokeRef.current = null;
     }
 
-    // 3. Lock panel: commit strokes to ref first, then dispatch ALL committed strokes.
-    // We must use committedRef (not page?.panels) so that each dispatch includes
-    // strokes from ALL previously locked panels — not just the current one.
     const activePanel = orderedPanels[panelIdxRef.current];
     committedRef.current = new Map(committedRef.current).set(activePanel.id, finalStrokes);
 
-    const updatedPanels = (page?.panels ?? []).map(p => {
-      const saved = committedRef.current.get(p.id);
-      return saved !== undefined ? { ...p, strokes: saved } : p;
-    });
-    dispatch({ type: 'UPDATE_PAGE_PANELS', pageId, panels: updatedPanels });
+    // Dispatch strokes to the correct page(s)
+    if (isSpreadMode && siblingPage && page) {
+      for (const pg of [page, siblingPage]) {
+        const updatedPanels = pg.panels.map(p => {
+          const saved = committedRef.current.get(p.id);
+          return saved !== undefined ? { ...p, strokes: saved } : p;
+        });
+        dispatch({ type: 'UPDATE_PAGE_PANELS', pageId: pg.id, panels: updatedPanels });
+      }
+    } else {
+      const updatedPanels = (page?.panels ?? []).map(p => {
+        const saved = committedRef.current.get(p.id);
+        return saved !== undefined ? { ...p, strokes: saved } : p;
+      });
+      dispatch({ type: 'UPDATE_PAGE_PANELS', pageId, panels: updatedPanels });
+    }
 
-    // 4. Advance to next panel or finish
     const nextIdx = panelIdxRef.current + 1;
     if (nextIdx >= orderedPanels.length) {
       currentStrokesRef.current = [];
@@ -257,16 +302,13 @@ export function SessionCanvas({
       return;
     }
 
-    // Reset for next panel
     currentStrokesRef.current = [];
     undoHistoryRef.current = [];
     setPanelIdx(nextIdx);
     setRedrawTick(t => t + 1);
 
-    // 5. Reset timer and start new RAF
     deadlineRef.current = performance.now() + durationMs;
     setDisplayMs(durationMs);
-    // Use raw setters to keep phase === 'drawing' without causing useEffect to re-fire
     setPhase_(p => { void p; return 'drawing'; });
     phaseRef.current = 'drawing';
 
@@ -283,9 +325,8 @@ export function SessionCanvas({
       rafIdRef.current = requestAnimationFrame(tick);
     };
     rafIdRef.current = requestAnimationFrame(tick);
-  }, [orderedPanels, page, pageId, dispatch, durationMs, setPhase, setPanelIdx]);
+  }, [orderedPanels, page, pageId, siblingPage, isSpreadMode, dispatch, durationMs, setPhase, setPanelIdx]);
 
-  // Keep expirePanelRef always current
   expirePanelRef.current = expirePanel;
 
   // ── Countdown effect (once on mount) ──────────────────────────────────────
@@ -348,7 +389,6 @@ export function SessionCanvas({
           cancelAnimationFrame(rafIdRef.current);
           rafIdRef.current = null;
         }
-        // Commit live stroke mid-stroke without advancing panel
         if (liveStrokeRef.current && liveStrokeRef.current.points.length >= 2) {
           const s: Stroke = {
             id: uid(),
@@ -376,8 +416,6 @@ export function SessionCanvas({
     redrawCanvas();
   }, [redrawTick, pagePx, redrawCanvas]);
 
-  // (No auto-navigate on finished — user chooses via review overlay buttons)
-
   // ── Pointer event handlers ────────────────────────────────────────────────
 
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -389,11 +427,11 @@ export function SessionCanvas({
 
     if (tool === 'eraser') {
       const rect = canvas.getBoundingClientRect();
-      const s = rect.width / project.pageWidthMm;
+      const s = rect.width / totalWidthMm;
       const panel = orderedPanels[panelIdxRef.current];
-      const ptX = (e.clientX - rect.left) / s - panel.x;
+      const ptX = (e.clientX - rect.left) / s - panel.xOffset - panel.x;
       const ptY = (e.clientY - rect.top) / s - panel.y;
-      const THRESH = 3; // mm
+      const THRESH = 3;
       const hitId =
         currentStrokesRef.current.find(stroke =>
           stroke.points.some(pt => Math.hypot(pt.x - ptX, pt.y - ptY) <= THRESH),
@@ -410,14 +448,14 @@ export function SessionCanvas({
     canvas.setPointerCapture(e.pointerId);
 
     const rect = canvas.getBoundingClientRect();
-    const s = rect.width / project.pageWidthMm;
+    const s = rect.width / totalWidthMm;
     const panel = orderedPanels[panelIdxRef.current];
-    const ptX = (e.clientX - rect.left) / s - panel.x;
+    const ptX = (e.clientX - rect.left) / s - panel.xOffset - panel.x;
     const ptY = (e.clientY - rect.top) / s - panel.y;
 
     liveStrokeRef.current = { points: [{ x: ptX, y: ptY }], width: lineWidthMm, pointerId: e.pointerId };
     redrawCanvas();
-  }, [tool, orderedPanels, project.pageWidthMm, lineWidthMm, redrawCanvas]);
+  }, [tool, orderedPanels, totalWidthMm, lineWidthMm, redrawCanvas]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (phaseRef.current !== 'drawing') return;
@@ -429,18 +467,18 @@ export function SessionCanvas({
 
     const events = e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent];
     const rect = canvas.getBoundingClientRect();
-    const s = rect.width / project.pageWidthMm;
+    const s = rect.width / totalWidthMm;
     const panel = orderedPanels[panelIdxRef.current];
 
     for (const ev of events) {
       if (ev.pointerType !== 'pen') continue;
-      const ptX = (ev.clientX - rect.left) / s - panel.x;
+      const ptX = (ev.clientX - rect.left) / s - panel.xOffset - panel.x;
       const ptY = (ev.clientY - rect.top) / s - panel.y;
       liveStrokeRef.current!.points.push({ x: ptX, y: ptY });
     }
 
     redrawCanvas();
-  }, [orderedPanels, project.pageWidthMm, redrawCanvas]);
+  }, [orderedPanels, totalWidthMm, redrawCanvas]);
 
   const commitLiveStroke = useCallback((pointerId: number) => {
     const live = liveStrokeRef.current;
